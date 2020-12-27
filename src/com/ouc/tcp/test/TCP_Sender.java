@@ -21,6 +21,9 @@ public class TCP_Sender extends TCP_Sender_ADT {
     UDT_Timer udt_timer;
     UDT_RetransTask udt_retransTask;
 
+    Send_Window send_window = new Send_Window();
+    Slide_Window<Send_Window> send_SlideWindows = new Slide_Window<>(5);
+
     /*构造函数*/
     public TCP_Sender() {
         super();    //调用超类构造函数
@@ -39,18 +42,24 @@ public class TCP_Sender extends TCP_Sender_ADT {
         tcpH.setTh_sum(CheckSum.computeChkSum(tcpPack));
         tcpPack.setTcpH(tcpH);
 
-        //发送TCP数据报
-        udt_send(tcpPack);
-        flag = 0;
+        send_window = new Send_Window(tcpPack.getTcpH().getTh_seq(), false);
 
-        // 设置计时器
-        udt_timer = new UDT_Timer();
-        udt_retransTask = new UDT_RetransTask(client, tcpPack);
-        udt_timer.schedule(udt_retransTask, 3000, 3000);
+        if (send_SlideWindows.addLast(send_window)) {
 
-        //等待ACK报文
-        //waitACK();
-        while (flag == 0) {
+            System.out.println("the first of slideWindow is " + send_SlideWindows.getFirst().getThe_seq());
+
+            //发送TCP数据报
+            udt_send(tcpPack);
+            flag = 0;
+            // 设置计时器
+            udt_timer = new UDT_Timer();
+            udt_retransTask = new UDT_RetransTask(client, tcpPack);
+            udt_timer.schedule(udt_retransTask, 3000, 3000);
+
+            //等待ACK报文
+            //waitACK();
+            while (flag == 0) {
+            }
         }
     }
 
@@ -71,18 +80,55 @@ public class TCP_Sender extends TCP_Sender_ADT {
     public void waitACK() {
         //循环检查ackQueue
         //循环检查确认号对列中是否有新收到的ACK
+//        if (!ackQueue.isEmpty()) {
+//            int currentAck = ackQueue.poll();
+//            // System.out.println("CurrentAck: " + currentAck);
+//            for (int i = 0; i < send_SlideWindows.getLength(); i++) {
+//                if (currentAck > 0) {
+//                    System.out.println("\n the size of send_SlideWindows is " + send_SlideWindows.getSize());
+//                    if (!send_SlideWindows.isEmpty()) {
+//                        if (currentAck == send_SlideWindows.get(i).getThe_seq() && !send_SlideWindows.get(i).isAcked()) {
+//                            System.out.println("Clear: " + tcpPack.getTcpH().getTh_seq());
+//                            flag = 1;
+//                            udt_timer.cancel();
+//                            send_SlideWindows.get(i).setAcked(true);
+//                            break;
+//                        } else if (send_SlideWindows.get(i).isAcked()) {
+//                            break;
+//                        }
+//                    } else {
+//                        System.out.println("Retransmit: " + tcpPack.getTcpH().getTh_seq());
+//                        udt_send(tcpPack);
+//                        flag = 0;
+//                    }
+//                }
+//            }
+//            if (!send_SlideWindows.isEmpty() && send_SlideWindows.getFirst().isAcked()) {
+//                send_SlideWindows.removeFirst();
+//            }
         if (!ackQueue.isEmpty()) {
             int currentAck = ackQueue.poll();
-            // System.out.println("CurrentAck: "+currentAck);
-            if (currentAck == tcpPack.getTcpH().getTh_seq()) {
-                System.out.println("Clear: " + tcpPack.getTcpH().getTh_seq());
-                flag = 1;
-                udt_timer.cancel();
-                //break;
-            } else {
-                System.out.println("Retransmit: " + tcpPack.getTcpH().getTh_seq());
-                udt_send(tcpPack);
-                flag = 0;
+            System.out.println("\n the size of send_SlideWindows is " + send_SlideWindows.getSize());
+            int temp = 0;
+            if (currentAck >= send_SlideWindows.getFirst().getThe_seq()) {
+                for (int i = 0; i < send_SlideWindows.getSize(); i++) {
+                    if (currentAck == send_SlideWindows.get(i).getThe_seq()) {
+                        System.out.println("Clear: " + tcpPack.getTcpH().getTh_seq());
+                        flag = 1;
+                        udt_timer.cancel();
+                        send_SlideWindows.get(i).setAcked(true);
+                        temp = 1;
+                        if (!send_SlideWindows.isEmpty() && send_SlideWindows.getFirst().isAcked()) {
+                            send_SlideWindows.removeFirst();
+                        }
+                        break;
+                    }
+                }
+                if (temp == 0) {
+                    System.out.println("Retransmit: " + tcpPack.getTcpH().getTh_seq());
+                    udt_send(tcpPack);
+                    flag = 0;
+                }
             }
         }
     }
