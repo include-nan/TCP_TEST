@@ -18,9 +18,6 @@ public class TCP_Sender extends TCP_Sender_ADT {
     // 在访问volatile变量时不会执行加锁操作，因此也就不会使执行线程阻塞
     private volatile int flag = 0;
 
-    UDT_Timer udt_timer;
-    UDT_RetransTask udt_retransTask;
-
     /*构造函数*/
     public TCP_Sender() {
         super();    //调用超类构造函数
@@ -43,11 +40,6 @@ public class TCP_Sender extends TCP_Sender_ADT {
         udt_send(tcpPack);
         flag = 0;
 
-        // 设置计时器
-        udt_timer = new UDT_Timer();
-        udt_retransTask = new UDT_RetransTask(client, tcpPack);
-        udt_timer.schedule(udt_retransTask, 3000, 3000);
-
         //等待ACK报文
         //waitACK();
         while (flag == 0) {
@@ -60,7 +52,7 @@ public class TCP_Sender extends TCP_Sender_ADT {
         //设置错误控制标志
         //0.信道无差错  //1.只出错     //2.只丢包     //3.只延迟
         //4.出错/丢包  //5.出错/延迟   //6.丢包/延迟  //7.出错/丢包/延迟
-        tcpH.setTh_eflag((byte) 7);
+        tcpH.setTh_eflag((byte) 1);
         //System.out.println("to send: "+stcpPack.getTcpH().getTh_seq());
         //发送数据报
         client.send(stcpPack);
@@ -77,7 +69,6 @@ public class TCP_Sender extends TCP_Sender_ADT {
             if (currentAck == tcpPack.getTcpH().getTh_seq()) {
                 System.out.println("Clear: " + tcpPack.getTcpH().getTh_seq());
                 flag = 1;
-                udt_timer.cancel();
                 //break;
             } else {
                 System.out.println("Retransmit: " + tcpPack.getTcpH().getTh_seq());
