@@ -3,8 +3,7 @@ package com.ouc.tcp.test;
 import com.ouc.tcp.client.TCP_Sender_ADT;
 import com.ouc.tcp.client.UDT_RetransTask;
 import com.ouc.tcp.client.UDT_Timer;
-import com.ouc.tcp.message.*;
-import com.ouc.tcp.tool.TCP_TOOL;
+import com.ouc.tcp.message.TCP_PACKET;
 
 /**
  * @author zjn12
@@ -21,8 +20,7 @@ public class TCP_Sender extends TCP_Sender_ADT {
     UDT_Timer udt_timer;
     UDT_RetransTask udt_retransTask;
 
-    Send_Window send_window = new Send_Window();
-    Slide_Window<Send_Window> send_SlideWindows = new Slide_Window<>(5);
+    private Send_Window send_window = new Send_Window(client);
 
     /*构造函数*/
     public TCP_Sender() {
@@ -35,32 +33,36 @@ public class TCP_Sender extends TCP_Sender_ADT {
     public void rdt_send(int dataIndex, int[] appData) {
 
         //生成TCP数据报（设置序号和数据字段/校验和),注意打包的顺序
-        tcpH.setTh_seq(dataIndex * appData.length + 1);//包序号设置为字节流号：
+        //tcpH.setTh_seq(dataIndex * appData.length + 1);//包序号设置为字节流号：
+        tcpH.setTh_seq(dataIndex);
         tcpS.setData(appData);
         tcpPack = new TCP_PACKET(tcpH, tcpS, destinAddr);
 
         tcpH.setTh_sum(CheckSum.computeChkSum(tcpPack));
         tcpPack.setTcpH(tcpH);
 
-        send_window = new Send_Window(tcpPack.getTcpH().getTh_seq(), false);
+        while (send_window.isFull()) ;
 
-        if (send_SlideWindows.addLast(send_window)) {
-
-            System.out.println("the first of slideWindow is " + send_SlideWindows.getFirst().getThe_seq());
-
-            //发送TCP数据报
-            udt_send(tcpPack);
-            flag = 0;
-            // 设置计时器
-            udt_timer = new UDT_Timer();
-            udt_retransTask = new UDT_RetransTask(client, tcpPack);
-            udt_timer.schedule(udt_retransTask, 3000, 3000);
-
-            //等待ACK报文
-            //waitACK();
-            while (flag == 0) {
-            }
+        TCP_PACKET packet = new TCP_PACKET(tcpH, tcpS, destinAddr);
+        try {
+            send_window.sendPacket(packet.clone());
+        } catch (CloneNotSupportedException e) {
+            e.printStackTrace();
         }
+
+//        //发送TCP数据报
+//        udt_send(tcpPack);
+//        flag = 0;
+//
+//        // 设置计时器
+//        udt_timer = new UDT_Timer();
+//        udt_retransTask = new UDT_RetransTask(client, tcpPack);
+//        udt_timer.schedule(udt_retransTask, 3000, 3000);
+//
+//        //等待ACK报文
+//        //waitACK();
+//        while (flag == 0) {
+//        }
     }
 
     @Override
@@ -80,67 +82,35 @@ public class TCP_Sender extends TCP_Sender_ADT {
     public void waitACK() {
         //循环检查ackQueue
         //循环检查确认号对列中是否有新收到的ACK
-//        if (!ackQueue.isEmpty()) {
-//            int currentAck = ackQueue.poll();
-//            // System.out.println("CurrentAck: " + currentAck);
-//            for (int i = 0; i < send_SlideWindows.getLength(); i++) {
-//                if (currentAck > 0) {
-//                    System.out.println("\n the size of send_SlideWindows is " + send_SlideWindows.getSize());
-//                    if (!send_SlideWindows.isEmpty()) {
-//                        if (currentAck == send_SlideWindows.get(i).getThe_seq() && !send_SlideWindows.get(i).isAcked()) {
-//                            System.out.println("Clear: " + tcpPack.getTcpH().getTh_seq());
-//                            flag = 1;
-//                            udt_timer.cancel();
-//                            send_SlideWindows.get(i).setAcked(true);
-//                            break;
-//                        } else if (send_SlideWindows.get(i).isAcked()) {
-//                            break;
-//                        }
-//                    } else {
-//                        System.out.println("Retransmit: " + tcpPack.getTcpH().getTh_seq());
-//                        udt_send(tcpPack);
-//                        flag = 0;
-//                    }
+//        while (true) {
+//            if (!ackQueue.isEmpty()) {
+//                int currentAck = ackQueue.poll();
+//                // System.out.println("CurrentAck: "+currentAck);
+//                if (currentAck == tcpPack.getTcpH().getTh_seq()) {
+//                    System.out.println("Clear: " + tcpPack.getTcpH().getTh_seq());
+//                    flag = 1;
+//                    udt_timer.cancel();
+//                    break;
+//                } else {
+//                    System.out.println("Retransmit: " + tcpPack.getTcpH().getTh_seq());
+//                    udt_send(tcpPack);
+//                    flag = 0;
 //                }
 //            }
-//            if (!send_SlideWindows.isEmpty() && send_SlideWindows.getFirst().isAcked()) {
-//                send_SlideWindows.removeFirst();
-//            }
-        if (!ackQueue.isEmpty()) {
-            int currentAck = ackQueue.poll();
-            System.out.println("\n the size of send_SlideWindows is " + send_SlideWindows.getSize());
-            int temp = 0;
-            if (currentAck >= send_SlideWindows.getFirst().getThe_seq()) {
-                for (int i = 0; i < send_SlideWindows.getSize(); i++) {
-                    if (currentAck == send_SlideWindows.get(i).getThe_seq()) {
-                        System.out.println("Clear: " + tcpPack.getTcpH().getTh_seq());
-                        flag = 1;
-                        udt_timer.cancel();
-                        send_SlideWindows.get(i).setAcked(true);
-                        temp = 1;
-                        if (!send_SlideWindows.isEmpty() && send_SlideWindows.getFirst().isAcked()) {
-                            send_SlideWindows.removeFirst();
-                        }
-                        break;
-                    }
-                }
-                if (temp == 0) {
-                    System.out.println("Retransmit: " + tcpPack.getTcpH().getTh_seq());
-                    udt_send(tcpPack);
-                    flag = 0;
-                }
-            }
-        }
+//        }
     }
 
     @Override
     //接收到ACK报文：检查校验和，将确认号插入ack队列;NACK的确认号为－1；不需要修改
     public void recv(TCP_PACKET recvPack) {
+
+        send_window.recvPacket(recvPack);	//使用窗口来处理ack
+
         System.out.println("Receive ACK Number： " + recvPack.getTcpH().getTh_ack());
         ackQueue.add(recvPack.getTcpH().getTh_ack());
         System.out.println();
 
         //处理ACK报文
-        waitACK();
+        //waitACK();
     }
 }
