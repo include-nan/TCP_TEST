@@ -35,12 +35,12 @@ public class TCP_Receiver extends TCP_Receiver_ADT {
         System.out.println("the seq of received is " + seqInPack);
         //检查校验码，生成ACK
         if (CheckSum.computeChkSum(recvPack) == recvPack.getTcpH().getTh_sum() && seqInPack >= receive_window.base && seqInPack < receive_window.base + receive_window.size) {
-            //是我期望的序号 && 校验通过
+            //校验通过 && 位于窗口内
             //生成ACK报文段（设置确认号）
             tcpH.setTh_ack(recvPack.getTcpH().getTh_seq());
             ackPack = new TCP_PACKET(tcpH, tcpS, recvPack.getSourceAddr());
             tcpH.setTh_sum(CheckSum.computeChkSum(ackPack));
-            //回复ACK报文段
+            // 放到数据容器，等待交付
             try {
                 Vector<TCP_PACKET> vector = receive_window.recvPacket(recvPack.clone());
                 if (vector != null && vector.size() > 0) {
@@ -55,24 +55,17 @@ public class TCP_Receiver extends TCP_Receiver_ADT {
             } catch (CloneNotSupportedException e) {
                 e.printStackTrace();
             }
+            //回复ACK报文段
             reply(ackPack);
-            //将接收到的正确有序的数据插入data队列，准备交付
-            //dataQueue.add(recvPack.getTcpS().getData());
-            //sequence++;
-        } else if (seqInPack < receive_window.base && seqInPack > receive_window.base - receive_window.size) {
+        } else if (seqInPack < receive_window.base) {
             System.out.println("out of the windows ");
             tcpH.setTh_ack(seqInPack);
             ackPack = new TCP_PACKET(tcpH, tcpS, recvPack.getSourceAddr());
             tcpH.setTh_sum(CheckSum.computeChkSum(ackPack));
-            System.out.println("error ack: " + seqInPack);
             //回复ACK报文段
             reply(ackPack);
         }
         System.out.println();
-        //交付数据（每20组数据交付一次）
-        //if (dataQueue.size() == 20) {
-        //    deliver_data();
-        //}
     }
 
     @Override

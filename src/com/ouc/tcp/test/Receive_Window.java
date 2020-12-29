@@ -23,13 +23,12 @@ public class Receive_Window extends Slide_Window {
         int index = seq % size;
 
         System.out.println("the receive is : ");
-        System.out.println("\tseq = " + seq + " index = " + index + " base = " + base);
-        System.out.println("\tnextseqnum = " + nextseqnum + " end = " + end);
+        System.out.println("\tseq = " + seq + " index = " + index);
+        System.out.println("\tbase = " + base + " end = " + end);
 
         if (index >= 0) {
             isAck[index] = true;
             packets[index] = packet;
-            // client.send(packet);
             if (seq == base) {          //收到的包是窗口的第一个包
                 int i;
                 for (i = base; i <= end && isAck[i % size]; i++) {
@@ -39,7 +38,6 @@ public class Receive_Window extends Slide_Window {
                 }
                 base = i;               //移动窗口位置
                 end = base + size - 1;
-                //sequence = packets[(base-1) % size].getTcpH().getTh_seq();
             }
         }
         return vector;

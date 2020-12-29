@@ -70,31 +70,4 @@ public class Send_Window extends Slide_Window {
             }
         }
     }
-
-    class RetransmitTask extends TimerTask {
-
-        public RetransmitTask() {
-            super();
-        }
-
-        @Override
-        public void run() {
-            //执行重传
-            for (int i = base; i < nextseqnum; i++) {
-                int index = i % size;
-                if (packets[index] != null && !isAck[index]) {
-                    try {
-                        timers[index].cancel();
-                        timers[index] = new UDT_Timer();
-                        RetransmitTask task = new RetransmitTask();
-                        timers[index].schedule(task, 3000, 3000);
-                        System.out.println("Retransmission: " + packets[index].getTcpH().getTh_seq());
-                        client.send(packets[index].clone());
-                    } catch (CloneNotSupportedException e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-        }
-    }
 }
