@@ -15,7 +15,7 @@ import java.util.TimerTask;
  */
 public class Send_Window extends Slide_Window {
 
-    private UDT_Timer[] timers = new UDT_Timer[size];
+    private final UDT_Timer[] timers = new UDT_Timer[size];
 
     public Send_Window(Client client) {
         super(client);

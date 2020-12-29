@@ -17,10 +17,9 @@ import java.util.Vector;
  */
 public class TCP_Receiver extends TCP_Receiver_ADT {
 
-    private TCP_PACKET ackPack;    //回复的ACK报文段
     int sequence = 1;   //用于记录当前待接收的包序号，注意包序号不完全是
 
-    private Receive_Window receive_window = new Receive_Window(client);
+    private final Receive_Window receive_window = new Receive_Window(client);
 
     /*构造函数*/
     public TCP_Receiver() {
@@ -34,6 +33,9 @@ public class TCP_Receiver extends TCP_Receiver_ADT {
         int seqInPack = recvPack.getTcpH().getTh_seq();
         System.out.println("the seq of received is " + seqInPack);
         //检查校验码，生成ACK
+        // [rcvbase, rcvbase + N -1]
+        //回复的ACK报文段
+        TCP_PACKET ackPack;
         if (CheckSum.computeChkSum(recvPack) == recvPack.getTcpH().getTh_sum() && seqInPack >= receive_window.base && seqInPack < receive_window.base + receive_window.size) {
             //校验通过 && 位于窗口内
             //生成ACK报文段（设置确认号）
@@ -57,7 +59,8 @@ public class TCP_Receiver extends TCP_Receiver_ADT {
             }
             //回复ACK报文段
             reply(ackPack);
-        } else if (seqInPack < receive_window.base) {
+            // [rcvbase - N, rcvbase - 1]
+        } else if (seqInPack < receive_window.base && seqInPack > receive_window.base - receive_window.size) {
             System.out.println("out of the windows ");
             tcpH.setTh_ack(seqInPack);
             ackPack = new TCP_PACKET(tcpH, tcpS, recvPack.getSourceAddr());
@@ -65,6 +68,8 @@ public class TCP_Receiver extends TCP_Receiver_ADT {
             //回复ACK报文段
             reply(ackPack);
         }
+        // 其他情况，忽略分组
+
         System.out.println();
     }
 
